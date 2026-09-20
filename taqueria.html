@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistema Taquería La Negrita</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden select-none font-sans text-slate-800">
+
+  <!-- BARRA SUPERIOR -->
+  <header class="bg-slate-900 text-white px-6 py-3 flex justify-between items-center shrink-0 shadow-md">
+    <div class="flex items-center gap-4">
+      <h1 class="text-xl font-black tracking-wide text-amber-400">TAQUERÍA LA NEGRITA</h1>
+      <div class="flex bg-slate-800 rounded-xl p-1 gap-1 border border-slate-700">
+        <button id="tab-pos" onclick="cambiarVista('pos')" class="px-5 py-2 rounded-lg text-sm font-bold bg-amber-500 text-slate-950 transition-all">
+          🌮 Punto de Venta
+        </button>
+        <button id="tab-inv" onclick="intentarAccesoInventario()" class="px-5 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          🔒 Inventario / Insumos
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="reloj" class="font-mono text-sm bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700"></span>
+      <button id="btn-lock" onclick="bloquearInventario()" class="hidden text-xs bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg font-bold">
+        Cerrar Sesión Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= SECCIÓN 1: PUNTO DE VENTA ================= -->
+  <main id="vista-pos" class="flex-1 flex overflow-hidden">
+    <!-- Panel Izquierdo: Catálogo -->
+    <section class="w-7/12 h-full flex flex-col border-r border-slate-300">
+      <div id="categorias" class="p-3 bg-white flex gap-2 overflow-x-auto shadow-sm border-b shrink-0"></div>
+      <div id="grid-productos" class="p-4 grid grid-cols-3 gap-3 overflow-y-auto flex-1 content-start"></div>
+    </section>
+
+    <!-- Panel Derecho: Comanda y Mesas -->
+    <aside class="w-5/12 h-full flex flex-col bg-white shadow-xl">
+      <!-- Selector de Mesa activa -->
+      <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800" id="titulo-mesa">Mesa Activa</h2>
+          <span id="badge-mesa-status" class="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700">Sin consumo</span>
+        </div>
+        <select id="select-mesa" onchange="seleccionarMesa(this.value)" class="bg-white border-2 border-slate-300 p-2 rounded-xl font-bold text-slate-700 text-sm focus:outline-none">
+          <option value="Mesa 1">Mesa 1</option>
+          <option value="Mesa 2">Mesa 2</option>
+          <option value="Mesa 3">Mesa 3</option>
+          <option value="Mesa 4">Mesa 4</option>
+          <option value="Barra 1">Barra 1</option>
+          <option value="Barra 2">Barra 2</option>
+          <option value="Para Llevar">Para Llevar</option>
+        </select>
+      </div>
+
+      <!-- Lista de items acumulados -->
+      <div id="orden-items" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+
+      <!-- Panel de Acciones -->
+      <div class="p-4 border-t bg-slate-50 shrink-0">
+        <div class="flex justify-between items-baseline mb-3">
+          <div>
+            <span class="text-slate-500 text-xs uppercase font-bold tracking-wider">Total Acumulado</span>
+            <div id="total-txt" class="text-3xl font-black text-slate-900">$0</div>
+          </div>
+          <div class="text-right">
+            <span id="pendientes-txt" class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+              0 platillos por mandar
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Botón 1: Solo envía al comal lo pendiente -->
+          <button onclick="mandarAlTaquero()" id="btn-comanda" class="bg-amber-500 hover:bg-amber-600 text-slate-950 py-3 rounded-xl font-black text-sm active:scale-95 transition-all shadow-sm">
+            👨‍🍳 Mandar al Taquero
+          </button>
+          <!-- Botón 2: Cobra todo y sube a Sheets -->
+          <button onclick="cobrarYCerrarCuenta()" id="btn-cobrar" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-sm active:scale-95 shadow-md shadow-emerald-200 transition-all">
+            💰 Cobrar y Cerrar
+          </button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ================= SECCIÓN 2: INVENTARIO ================= -->
+  <section id="vista-inv" class="hidden flex-1 p-6 overflow-hidden flex flex-col">
+    <div class="flex justify-between items-center mb-4 shrink-0">
+      <div>
+        <h2 class="text-xl font-black text-slate-800">Control de Insumos y Almacén</h2>
+        <p class="text-xs text-slate-500">Sesión de administrador activa</p>
+      </div>
+      <button onclick="abrirModalInsumo()" class="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-sm shadow hover:bg-slate-800 active:scale-95">
+        + Registrar Nuevo Insumo
+      </button>
+    </div>
+
+    <div class="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-y-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase sticky top-0">
+          <tr>
+            <th class="p-4">Insumo</th>
+            <th class="p-4">Categoría</th>
+            <th class="p-4 text-center">Unidad</th>
+            <th class="p-4 text-center">Stock Mínimo</th>
+            <th class="p-4 text-center">Stock Actual</th>
+            <th class="p-4 text-center">Estado</th>
+            <th class="p-4 text-right">Modificar Stock</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-insumos-body" class="divide-y divide-slate-100 text-sm font-semibold"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- MODAL DE COMBINACIONES -->
+  <div id="modal-combinacion" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[90vh]">
+      <h3 class="text-xl font-black text-slate-900 mb-1">Armar Taco Combinado</h3>
+      <p class="text-xs text-slate-500 mb-4">Selecciona los ingredientes para combinar:</p>
+      
+      <div id="lista-carnes-combo" class="grid grid-cols-2 gap-2 overflow-y-auto flex-1 p-1"></div>
+
+      <div class="border-t pt-4 mt-4 flex gap-2">
+        <button onclick="cerrarModalCombo()" class="flex-1 bg-slate-200 text-slate-700 py-3 rounded-xl font-bold active:scale-95">
+          Cancelar
+        </button>
+        <button onclick="confirmarCombinacion()" class="flex-1 bg-amber-500 text-slate-950 py-3 rounded-xl font-bold active:scale-95 shadow-md">
+          Agregar Taco ($20)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_SCRIPT_URL = "TU_URL_DE_APPS_SCRIPT_AQUI";
+    const SERVIDOR_IMPRESION_URL = "http://192.168.1.100:8080/imprimir";
+    const PIN_ADMIN = "1234";
+    let adminAutenticado = false;
+
+    // ESTRUCTURA DE MESAS (Memoria local de pedidos por mesa)
+    const mesas = {
+      "Mesa 1": [],
+      "Mesa 2": [],
+      "Mesa 3": [],
+      "Mesa 4": [],
+      "Barra 1": [],
+      "Barra 2": [],
+      "Para Llevar": []
+    };
+    let mesaActual = "Mesa 1";
+
+    const carnesDisponibles = ["Maciza", "Cuero", "Buche", "Costilla", "Oreja", "Trompa", "Lengua", "Cachete", "Barriga", "Hígado", "Chamorro", "Surtido"];
+
+    const productos = [
+      { id: 999, cat: "Tacos", nombre: "🌮 Taco Combinado (Campechano)", precio: 20, esCombo: true },
+      { id: 1, cat: "Tacos", nombre: "Maciza", precio: 20 },
+      { id: 2, cat: "Tacos", nombre: "Cuero", precio: 20 },
+      { id: 3, cat: "Tacos", nombre: "Buche", precio: 20 },
+      { id: 4, cat: "Tacos", nombre: "Costilla", precio: 20 },
+      { id: 5, cat: "Tacos", nombre: "Surtido", precio: 20 },
+      { id: 6, cat: "Tacos", nombre: "Lengua", precio: 20 },
+      { id: 7, cat: "Tacos", nombre: "Chamorro", precio: 20 },
+      { id: 8, cat: "Especiales", nombre: "Taco Especial", precio: 40 },
+      { id: 9, cat: "Especiales", nombre: "Taco Riñón", precio: 40 },
+      { id: 10, cat: "Tortas", nombre: "Torta Regular", precio: 50 },
+      { id: 11, cat: "Tortas", nombre: "Torta Especial", precio: 90 },
+      { id: 12, cat: "Quesadillas", nombre: "Sesadilla", precio: 20 },
+      { id: 13, cat: "Quesadillas", nombre: "Quesadilla c/Carne", precio: 45 },
+      { id: 14, cat: "Kilos", nombre: "Carnitas por Kg", precio: 400 }
+    ];
+
+    let inventario = [
+      { id: 1, nombre: "Carne Cruda de Cerdo", cat: "Cárnicos", unidad: "Kg", stockMin: 15, stock: 32 },
+      { id: 2, nombre: "Tortilla de Maíz", cat: "Tortillería", unidad: "Kg", stockMin: 10, stock: 8 },
+      { id: 3, nombre: "Tortilla de Harina", cat: "Tortillería", unidad: "Paquetes", stockMin: 5, stock: 12 },
+      { id: 4, nombre: "Manteca para Cazo", cat: "Grasas", unidad: "Kg", stockMin: 10, stock: 25 },
+      { id: 5, nombre: "Queso Oaxaca", cat: "Lácteos", unidad: "Kg", stockMin: 4, stock: 3.5 },
+      { id: 6, nombre: "Telera / Pan de Torta", cat: "Panadería", unidad: "Piezas", stockMin: 20, stock: 45 },
+      { id: 7, nombre: "Refrescos Surtidos", cat: "Bebidas", unidad: "Piezas", stockMin: 24, stock: 60 }
+    ];
+
+    let carnesSeleccionadasCombo = [];
+
+    // RELOJ
+    setInterval(() => {
+      document.getElementById("reloj").innerText = new Date().toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' });
+    }, 1000);
+
+    // SELECCIÓN DE MESA
+    function seleccionarMesa(nombreMesa) {
+      mesaActual = nombreMesa;
+      document.getElementById("titulo-mesa").innerText = nombreMesa;
+      renderOrden();
+    }
+
+    // CATÁLOGO
+    const cats = ["Todos", ...new Set(productos.map(p => p.cat))];
+    const catContainer = document.getElementById("categorias");
+    cats.forEach((c, idx) => {
+      catContainer.innerHTML += `
+        <button onclick="filtrar('${c}')" class="px-4 py-2 rounded-xl text-sm font-bold shrink-0 transition-all ${idx === 0 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 active:bg-slate-300'}">
+          ${c}
+        </button>`;
+    });
+
+    function filtrar(categoria) {
+      document.querySelectorAll("#categorias button").forEach(b => {
+        b.className = b.innerText === categoria 
+          ? "px-4 py-2 rounded-xl text-sm font-bold shrink-0 bg-slate-900 text-white" 
+          : "px-4 py-2 rounded-xl text-sm font-bold shrink-0 bg-slate-100 text-slate-700 active:bg-slate-300";
+      });
+      renderProductos(categoria === "Todos" ? productos : productos.filter(p => p.cat === categoria));
+    }
+
+    function renderProductos(items) {
+      const grid = document.getElementById("grid-productos");
+      grid.innerHTML = "";
+      items.forEach(p => {
+        const esDestacado = p.esCombo ? 'border-amber-400 bg-amber-50/50' : 'border-slate-200 bg-white';
+        grid.innerHTML += `
+          <button onclick="pulsarProducto(${p.id})" class="h-24 border ${esDestacado} rounded-2xl p-3 text-left flex flex-col justify-between active:scale-95 shadow-sm hover:border-slate-400 transition-all">
+            <span class="font-bold text-slate-800 text-sm leading-tight">${p.nombre}</span>
+            <span class="text-emerald-600 font-black text-sm">$${p.precio}</span>
+          </button>`;
+      });
+    }
+
+    function pulsarProducto(id) {
+      const prod = productos.find(p => p.id === id);
+      if (prod.esCombo) abrirModalCombo();
+      else agregarAlCarrito(prod.id, prod.nombre, prod.precio, "");
+    }
+
+    function agregarAlCarrito(id, nombre, precio, notas) {
+      const cuentaMesa = mesas[mesaActual];
+      // Solo sumamos a los que NO se han enviado aún
+      const existePendiente = cuentaMesa.find(i => i.id === id && i.notas === notas && !i.enviado);
+      if (existePendiente) {
+        existePendiente.cant++;
+      } else {
+        cuentaMesa.push({
+          uid: Date.now() + Math.random(),
+          id,
+          nombre,
+          precio,
+          cant: 1,
+          notas,
+          enviado: false // false = aún no se manda a imprimir
+        });
+      }
+      renderOrden();
+    }
+
+    function cambiarCant(uid, delta) {
+      const cuentaMesa = mesas[mesaActual];
+      const idx = cuentaMesa.findIndex(i => i.uid === uid);
+      if (idx !== -1) {
+        if (cuentaMesa[idx].enviado) {
+          return alert("Este platillo ya fue mandado a preparar al taquero. Para cancelarlo háblalo con cocina.");
+        }
+        cuentaMesa[idx].cant += delta;
+        if (cuentaMesa[idx].cant <= 0) cuentaMesa.splice(idx, 1);
+      }
+      renderOrden();
+    }
+
+    function editarNota(uid) {
+      const cuentaMesa = mesas[mesaActual];
+      const item = cuentaMesa.find(i => i.uid === uid);
+      if (item.enviado) return alert("Este ítem ya está en preparación, no se puede cambiar la nota.");
+      const nota = prompt("Detalles de preparación:", item.notas || "");
+      if (nota !== null) {
+        item.notas = nota.trim();
+        renderOrden();
+      }
+    }
+
+    function renderOrden() {
+      const contenedor = document.getElementById("orden-items");
+      contenedor.innerHTML = "";
+      const cuentaMesa = mesas[mesaActual];
+      let total = 0;
+      let pendientesCount = 0;
+
+      cuentaMesa.forEach(item => {
+        const subtotal = item.precio * item.cant;
+        total += subtotal;
+        if (!item.enviado) pendientesCount += item.cant;
+
+        // Visualmente se diferencian los ya marchados de los pendientes
+        const estadoBadge = item.enviado 
+          ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">En preparación</span>`
+          : `<span class="text-[10px] bg-amber-100 text-amber-800 font-black px-1.5 py-0.5 rounded">Por mandar</span>`;
+
+        contenedor.innerHTML += `
+          <div class="border rounded-xl p-2.5 shadow-sm flex flex-col gap-1 ${item.enviado ? 'bg-slate-50 border-slate-200 opacity-90' : 'bg-white border-amber-300 ring-1 ring-amber-200'}">
+            <div class="flex justify-between items-center">
+              <div class="flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="font-bold text-slate-800 text-sm">${item.nombre}</span>
+                  ${estadoBadge}
+                </div>
+                <span class="text-xs text-slate-400">$${item.precio} c/u</span>
+              </div>
+              <div class="flex items-center gap-2">
+                ${!item.enviado ? `
+                  <button onclick="cambiarCant(${item.uid}, -1)" class="w-7 h-7 bg-slate-100 border text-slate-700 font-bold rounded-lg active:bg-slate-300">-</button>
+                  <span class="font-black w-4 text-center text-sm">${item.cant}</span>
+                  <button onclick="cambiarCant(${item.uid}, 1)" class="w-7 h-7 bg-slate-100 border text-slate-700 font-bold rounded-lg active:bg-slate-300">+</button>
+                ` : `
+                  <span class="font-black text-slate-600 text-sm px-2">x${item.cant}</span>
+                `}
+                <span class="w-12 text-right font-black text-sm text-slate-900">$${subtotal}</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-amber-800 font-bold">${item.notas ? '👉 ' + item.notas : ''}</span>
+              ${!item.enviado ? `
+                <button onclick="editarNota(${item.uid})" class="text-blue-600 font-bold underline">
+                  ${item.notas ? 'Editar nota' : '+ Nota'}
+                </button>
+              ` : ''}
+            </div>
+          </div>`;
+      });
+
+      document.getElementById("total-txt").innerText = `$${total}`;
+      document.getElementById("pendientes-txt").innerText = `${pendientesCount} platillos por mandar`;
+
+      // Badge mesa status
+      const badgeMesa = document.getElementById("badge-mesa-status");
+      if (cuentaMesa.length === 0) {
+        badgeMesa.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700";
+        badgeMesa.innerText = "Sin consumo";
+      } else {
+        badgeMesa.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800";
+        badgeMesa.innerText = "Cuenta Abierta";
+      }
+    }
+
+    // BOTÓN 1: ENVIAR SOLO LO PENDIENTE AL TAQUERO
+    async function mandarAlTaquero() {
+      const cuentaMesa = mesas[mesaActual];
+      const pendientes = cuentaMesa.filter(i => !i.enviado);
+
+      if (pendientes.length === 0) {
+        return alert("No hay ningún platillo nuevo por mandar a cocina.");
+      }
+
+      const payload = {
+        tipo: "COMANDA",
+        ubicacion: mesaActual,
+        fecha: new Date().toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' }),
+        orden: pendientes
+      };
+
+      try {
+        // Enviar a imprimir por red
+        await fetch(SERVIDOR_IMPRESION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.log("Modo sin impresora: comanda procesada digitalmente.");
+      }
+
+      // Marcar como enviados
+      pendientes.forEach(i => i.enviado = true);
+      alert(`¡Comanda enviada al taquero para ${mesaActual}! La cuenta permanece abierta.`);
+      renderOrden();
+    }
+
+    // BOTÓN 2: COBRAR, SUBIR TODO A GOOGLE SHEETS Y CERRAR CUENTA
+    async function cobrarYCerrarCuenta() {
+      const cuentaMesa = mesas[mesaActual];
+      if (cuentaMesa.length === 0) return alert("La mesa no tiene consumos registrados.");
+
+      const pendientes = cuentaMesa.filter(i => !i.enviado);
+      if (pendientes.length > 0) {
+        const continuar = confirm("Hay platillos que no se han mandado al taquero. ¿Deseas cobrar toda la cuenta y cerrarla?");
+        if (!continuar) return;
+      }
+
+      const total = cuentaMesa.reduce((acc, curr) => acc + (curr.precio * curr.cant), 0);
+      const btn = document.getElementById("btn-cobrar");
+      btn.innerText = "Guardando...";
+      btn.disabled = true;
+
+      const payload = {
+        fecha: new Date().toLocaleDateString("es-MX") + " " + new Date().toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' }),
+        ubicacion: mesaActual,
+        total: total,
+        detalles: cuentaMesa.map(i => `${i.cant}x ${i.nombre}${i.notas ? ' (' + i.notas + ')' : ''}`).join(", "),
+        orden: cuentaMesa
+      };
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        alert(`Cuenta de ${mesaActual} cobrada con éxito ($${total}). Registrada en Google Sheets.`);
+        mesas[mesaActual] = []; // Liberar mesa
+        renderOrden();
+      } catch (err) {
+        alert("Error al guardar en Google Sheets.");
+      } finally {
+        btn.innerText = "💰 Cobrar y Cerrar";
+        btn.disabled = false;
+      }
+    }
+
+    // MODAL DE COMBOS
+    function abrirModalCombo() {
+      carnesSeleccionadasCombo = [];
+      const contenedor = document.getElementById("lista-carnes-combo");
+      contenedor.innerHTML = "";
+      carnesDisponibles.forEach(carne => {
+        contenedor.innerHTML += `
+          <button onclick="toggleCarneCombo('${carne}', this)" class="p-3 border rounded-xl font-bold text-sm text-slate-700 text-center active:scale-95 transition-all bg-slate-50 border-slate-200">
+            ${carne}
+          </button>`;
+      });
+      document.getElementById("modal-combinacion").classList.remove("hidden");
+    }
+
+    function toggleCarneCombo(carne, btn) {
+      if (carnesSeleccionadasCombo.includes(carne)) {
+        carnesSeleccionadasCombo = carnesSeleccionadasCombo.filter(c => c !== carne);
+        btn.className = "p-3 border rounded-xl font-bold text-sm text-slate-700 text-center active:scale-95 transition-all bg-slate-50 border-slate-200";
+      } else {
+        carnesSeleccionadasCombo.push(carne);
+        btn.className = "p-3 border-2 rounded-xl font-bold text-sm text-amber-950 text-center active:scale-95 transition-all bg-amber-200 border-amber-500";
+      }
+    }
+
+    function cerrarModalCombo() {
+      document.getElementById("modal-combinacion").classList.add("hidden");
+    }
+
+    function confirmarCombinacion() {
+      if (carnesSeleccionadasCombo.length < 2) return alert("Elige al menos 2 carnes.");
+      agregarAlCarrito(Date.now(), "Taco Combinado", 20, carnesSeleccionadasCombo.join(" con "));
+      cerrarModalCombo();
+    }
+
+    // INVENTARIO Y ACCESO ADMIN
+    function intentarAccesoInventario() {
+      if (adminAutenticado) {
+        cambiarVista('inv');
+        return;
+      }
+      const pass = prompt("Acceso Restringido. Ingresa la contraseña:");
+      if (pass === PIN_ADMIN) {
+        adminAutenticado = true;
+        document.getElementById("btn-lock").classList.remove("hidden");
+        cambiarVista('inv');
+      } else if (pass !== null) {
+        alert("Contraseña incorrecta.");
+      }
+    }
+
+    function bloquearInventario() {
+      adminAutenticado = false;
+      document.getElementById("btn-lock").classList.add("hidden");
+      cambiarVista('pos');
+    }
+
+    function cambiarVista(vista) {
+      const pos = document.getElementById("vista-pos");
+      const inv = document.getElementById("vista-inv");
+      const tabPos = document.getElementById("tab-pos");
+      const tabInv = document.getElementById("tab-inv");
+
+      if (vista === 'pos') {
+        pos.classList.remove("hidden");
+        inv.classList.add("hidden");
+        tabPos.className = "px-5 py-2 rounded-lg text-sm font-bold bg-amber-500 text-slate-950 transition-all";
+        tabInv.className = "px-5 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition-all";
+      } else {
+        pos.classList.add("hidden");
+        inv.classList.remove("hidden");
+        tabInv.className = "px-5 py-2 rounded-lg text-sm font-bold bg-amber-500 text-slate-950 transition-all";
+        tabPos.className = "px-5 py-2 rounded-lg text-sm font-bold text-slate-300 hover:text-white transition-all";
+        renderInventario();
+      }
+    }
+
+    function renderInventario() {
+      const tbody = document.getElementById("tabla-insumos-body");
+      tbody.innerHTML = "";
+      inventario.forEach(insumo => {
+        const esBajo = insumo.stock <= insumo.stockMin;
+        const badge = esBajo 
+          ? `<span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-full text-xs font-black">Stock Bajo</span>`
+          : `<span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-black">Óptimo</span>`;
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="p-4 text-slate-900">${insumo.nombre}</td>
+            <td class="p-4 text-slate-500">${insumo.cat}</td>
+            <td class="p-4 text-center text-slate-600">${insumo.unidad}</td>
+            <td class="p-4 text-center text-slate-500">${insumo.stockMin}</td>
+            <td class="p-4 text-center text-base font-black ${esBajo ? 'text-rose-600' : 'text-slate-800'}">${insumo.stock}</td>
+            <td class="p-4 text-center">${badge}</td>
+            <td class="p-4 text-right space-x-1">
+              <button onclick="ajustarStock(${insumo.id}, -1)" class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-300 font-bold active:scale-95">-1</button>
+              <button onclick="ajustarStock(${insumo.id}, 1)" class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-300 font-bold active:scale-95">+1</button>
+              <button onclick="ajustarStockManual(${insumo.id})" class="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-xs font-bold active:scale-95">Fijar</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    function ajustarStock(id, delta) {
+      if (!adminAutenticado) return;
+      const item = inventario.find(i => i.id === id);
+      if (item) {
+        item.stock = Math.max(0, item.stock + delta);
+        renderInventario();
+      }
+    }
+
+    function ajustarStockManual(id) {
+      if (!adminAutenticado) return;
+      const item = inventario.find(i => i.id === id);
+      const val = prompt(`Nuevo stock para ${item.nombre}:`, item.stock);
+      if (val !== null && !isNaN(val)) {
+        item.stock = parseFloat(val);
+        renderInventario();
+      }
+    }
+
+    function abrirModalInsumo() {
+      if (!adminAutenticado) return;
+      const nombre = prompt("Nombre del insumo:");
+      if (!nombre) return;
+      const cat = prompt("Categoría:", "General") || "General";
+      const unidad = prompt("Unidad (Kg, Piezas):", "Kg") || "Kg";
+      const stockMin = parseFloat(prompt("Stock mínimo:", "5")) || 5;
+      const stock = parseFloat(prompt("Stock inicial:", "10")) || 10;
+      inventario.push({ id: Date.now(), nombre, cat, unidad, stockMin, stock });
+      renderInventario();
+    }
+
+    // Inicializar
+    renderProductos(productos);
+    renderOrden();
+  </script>
+</body>
+</html>
